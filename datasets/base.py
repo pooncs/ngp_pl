@@ -27,7 +27,7 @@ class BaseDataset(Dataset):
             elif self.ray_sampling_strategy == 'same_image': # randomly select ONE image
                 img_idxs = np.random.choice(len(self.poses), 1)[0]
             # randomly select pixels
-            pix_idxs = np.random.choice(self.img_wh[0]*self.img_wh[1], self.batch_size)
+            pix_idxs = np.random.choice(int(self.img_wh[0, 0]*self.img_wh[0, 1]), self.batch_size)
             rays = self.rays[img_idxs, pix_idxs]
             sample = {'img_idxs': img_idxs, 'pix_idxs': pix_idxs,
                       'rgb': rays[:, :3]}

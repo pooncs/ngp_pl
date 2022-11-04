@@ -77,11 +77,11 @@ class NeRFSystem(LightningModule):
 
     def forward(self, batch, split):
         if split=='train':
-            poses = self.poses[batch['img_idxs']]
-            directions = self.directions[batch['pix_idxs']]
+            poses = self.poses[batch['img_idxs']] # (batch, 3, 4)
+            directions = self.directions[batch['img_idxs'], batch['pix_idxs']] # (batch, 3)
         else:
             poses = batch['pose']
-            directions = self.directions
+            directions = torch.squeeze(self.directions[[batch['img_idxs']]])
 
         if self.hparams.optimize_ext:
             dR = axisangle_to_R(self.dR[batch['img_idxs']])
@@ -200,9 +200,10 @@ class NeRFSystem(LightningModule):
         logs['psnr'] = self.val_psnr.compute()
         self.val_psnr.reset()
 
-        w, h = self.train_dataset.img_wh
-        rgb_pred = rearrange(results['rgb'], '(h w) c -> 1 c h w', h=h)
-        rgb_gt = rearrange(rgb_gt, '(h w) c -> 1 c h w', h=h)
+        w, h = self.train_dataset.img_wh[batch['img_idxs']]
+        w, h = int(w), int(h)
+        rgb_pred = rearrange(results['rgb'], '(h w) c -> 1 c h w', h=h, w=w)
+        rgb_gt = rearrange(rgb_gt, '(h w) c -> 1 c h w', h=h, w=w)
         self.val_ssim(rgb_pred, rgb_gt)
         logs['ssim'] = self.val_ssim.compute()
         self.val_ssim.reset()
@@ -217,8 +218,12 @@ class NeRFSystem(LightningModule):
             rgb_pred = rearrange(results['rgb'].cpu().numpy(), '(h w) c -> h w c', h=h)
             rgb_pred = (rgb_pred*255).astype(np.uint8)
             depth = depth2img(rearrange(results['depth'].cpu().numpy(), '(h w) -> h w', h=h))
-            imageio.imsave(os.path.join(self.val_dir, f'{idx:03d}.png'), rgb_pred)
-            imageio.imsave(os.path.join(self.val_dir, f'{idx:03d}_d.png'), depth)
+            #imageio.imsave(os.path.join(self.val_dir, f'{idx:03d}.png'), rgb_pred)
+            #imageio.imsave(os.path.join(self.val_dir, f'{idx:03d}_d.png'), depth)
+            cv2.imwrite(os.path.join(self.val_dir, f'{idx:03d}.png'), \
+                cv2.cvtColor(rgb_pred, cv2.COLOR_BGR2RGB))
+            cv2.imwrite(os.path.join(self.val_dir, f'{idx:03d}_d.png'), \
+                cv2.cvtColor(depth, cv2.COLOR_BGR2RGB))
 
         return logs
 

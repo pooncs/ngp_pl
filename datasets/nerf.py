@@ -23,8 +23,10 @@ class NeRFDataset(BaseDataset):
         with open(os.path.join(self.root_dir, "transforms_train.json"), 'r') as f:
             meta = json.load(f)
 
-        w = h = int(800*self.downsample)
-        fx = fy = 0.5*800/np.tan(0.5*meta['camera_angle_x'])*self.downsample
+        #w = h = int(800*self.downsample)
+        w, h = int(meta['w']), int(meta['h'])
+        fx, fy = meta['fl_x'], meta['fl_y']
+        #fx = fy = 0.5*800/np.tan(0.5*meta['camera_angle_x'])*self.downsample
 
         K = np.float32([[fx, 0, w/2],
                         [0, fy, h/2],
@@ -80,7 +82,7 @@ class NeRFDataset(BaseDataset):
             self.poses += [c2w]
 
             try:
-                img_path = os.path.join(self.root_dir, f"{frame['file_path']}.png")
+                img_path = os.path.join(self.root_dir, f"{frame['file_path'][2:]}")
                 img = read_image(img_path, self.img_wh)
                 self.rays += [img]
             except: pass

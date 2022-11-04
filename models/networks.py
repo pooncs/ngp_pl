@@ -201,9 +201,9 @@ class NGP(nn.Module):
         only executed once before training starts
 
         Inputs:
-            K: (3, 3) camera intrinsics
+            K: (N, 3, 3) camera intrinsics
             poses: (N, 3, 4) camera to world poses
-            img_wh: image width and height
+            img_wh: (N, 2) image width and height
             chunk: the chunk size to split the cells (to avoid OOM)
         """
         N_cams = poses.shape[0]
@@ -222,8 +222,8 @@ class NGP(nn.Module):
                 uvd = K @ xyzs_c # (N_cams, 3, chunk)
                 uv = uvd[:, :2]/uvd[:, 2:] # (N_cams, 2, chunk)
                 in_image = (uvd[:, 2]>=0)& \
-                           (uv[:, 0]>=0)&(uv[:, 0]<img_wh[0])& \
-                           (uv[:, 1]>=0)&(uv[:, 1]<img_wh[1])
+                           (uv[:, 0]>=0)&(torch.lt(uv[:, 0].T, img_wh[:, 0].cuda())).T & \
+                           (uv[:, 1]>=0)&(torch.lt(uv[:, 1].T, img_wh[:, 1].cuda())).T
                 covered_by_cam = (uvd[:, 2]>=NEAR_DISTANCE)&in_image # (N_cams, chunk)
                 # if the cell is visible by at least one camera
                 self.count_grid[c, indices[i:i+chunk]] = \
