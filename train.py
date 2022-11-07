@@ -170,10 +170,12 @@ class NeRFSystem(LightningModule):
                                     **{'exposure': torch.ones(1, 1, device=self.device)})
             loss_d['unit_exposure'] = \
                 0.5*(unit_exposure_rgb-self.train_dataset.unit_exposure_rgb)**2
+        
         loss = sum(lo.mean() for lo in loss_d.values())
 
         with torch.no_grad():
             self.train_psnr(results['rgb'], batch['rgb'])
+
         self.log('lr', self.net_opt.param_groups[0]['lr'])
         self.log('train/loss', loss)
         # ray marching samples per ray (occupied space on the ray)

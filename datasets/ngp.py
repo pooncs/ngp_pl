@@ -25,8 +25,12 @@ class ngpDataset(BaseDataset):
                 
                 if 'aabb' in meta:
                     aabb = meta['aabb']
-                    self.scale = (np.array(aabb[1])-
-                                  np.array(aabb[0])).max()/2 * 1.05 # enlarge a little
+                    self.scale = max(abs(np.array(aabb[1]))+
+                                 abs(np.array(aabb[0])))
+                elif 'scale' in meta:
+                    self.scale = meta['scale']
+                else:
+                    self.scale = 1
             
             #self.shift = np.array(aabb['scene_center_3d_box'])
             
@@ -54,18 +58,18 @@ class ngpDataset(BaseDataset):
         self.img_wh = []
         self.directions = []
 
-        if split == 'train':
-            with open(os.path.join(self.root_dir, 'transforms.json'), 'r') as f:
-                meta = json.load(f)
-        else:
-            with open(os.path.join(self.root_dir, 'transforms.json'), 'r') as f:
-                meta = json.load(f)
-                meta['frames'] = meta['frames'][0]
+        with open(os.path.join(self.root_dir, 'transforms.json'), 'r') as f:
+            meta = json.load(f)
         
         if 'aabb' in meta:
+            #self.shift = np.array(aabb['scene_center_3d_box'])
             aabb = meta['aabb']
-            self.scale = (np.array(aabb[1])-
-                            np.array(aabb[0])).max()/2 * 1.05 # enlarge a little
+            self.scale = max(abs(np.array(aabb[1]))+
+                         abs(np.array(aabb[0])))
+        elif 'scale' in meta:
+            self.scale = meta['scale']
+        else:
+            self.scale = 1
 
         for frame in tqdm(meta['frames']):
             K, directions, img_wh = self.get_intrinsics(frame)
@@ -75,8 +79,8 @@ class ngpDataset(BaseDataset):
 
             c2w = np.array(frame['transform_matrix'])[:3, :4]
             c2w[:, 1:3] *= -1 # [right up back] to [right down front]
-            pose_radius_scale = 1.5
-            c2w[:, 3] /= np.linalg.norm(c2w[:, 3])/pose_radius_scale
+            #pose_radius_scale = 1
+            #c2w[:, 3] /= np.linalg.norm(c2w[:, 3]) #/pose_radius_scale
             self.poses += [c2w]
 
             image_path = os.path.join(self.root_dir, frame['file_path'][2:])
@@ -86,7 +90,13 @@ class ngpDataset(BaseDataset):
         
         if len(self.rays)>0:
             self.rays = torch.FloatTensor(np.stack(self.rays)) # (N_images, hw, rgb)
+        
         self.poses = torch.FloatTensor(self.poses) # (N_images, 3, 4)
+        #self.poses[..., 3] /= np.linalg.norm(self.poses[..., 3])
+        aabb_range = self.poses[..., 3].max(0)[0].abs() + \
+                     self.poses[..., 3].min(0)[0].abs()
+        self.poses[..., 3] /= (aabb_range[:2].max()/2)
+        self.poses[..., 3] *= self.scale
         self.K = torch.FloatTensor(self.K) # (N_images, 3, 3)
         self.directions = torch.stack(self.directions) # (N_images, hw, rgb)
         self.img_wh = torch.FloatTensor(self.img_wh) # (N_images, 2)
