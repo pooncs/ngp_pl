@@ -37,6 +37,8 @@ def get_ray_directions(H, W, K, device='cpu', random=False, return_uv=False, fla
         directions = directions.reshape(-1, 3)
         grid = grid.reshape(-1, 2)
 
+    #add if ortho:
+
     if return_uv:
         return directions, grid
     return directions
