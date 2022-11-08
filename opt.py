@@ -17,7 +17,8 @@ def get_opts():
 
     # model parameters
     parser.add_argument('--scale', type=float, default=0.5,
-                        help='scene scale (whole scene must lie in [-scale, scale]^3')
+                        help='scene scale (whole scene must lie in [-scale, scale]^3') 
+                        # similar to aabb_scale in instant-ngp
     parser.add_argument('--use_exposure', action='store_true', default=False,
                         help='whether to train in HDR-NeRF setting')
 
