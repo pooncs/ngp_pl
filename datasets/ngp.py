@@ -24,16 +24,19 @@ class ngpDataset(BaseDataset):
                 frame = [meta['frames'][0]]
                 
                 if 'aabb' in meta:
+                    #self.shift = np.array(aabb['scene_center_3d_box'])
                     aabb = meta['aabb']
                     self.scale = max(abs(np.array(aabb[1]))+
-                                 abs(np.array(aabb[0])))
+                                abs(np.array(aabb[0])))
+                    print(f'Scale from aabb: {self.scale}')
                 elif 'scale' in meta:
                     self.scale = meta['scale']
+                    print(f'Scale from scale: {self.scale}')
                 else:
                     self.scale = 1
+                    print(f'Default scale: {self.scale}')
             
             #self.shift = np.array(aabb['scene_center_3d_box'])
-            
             self.K, self.directions, self.img_wh = self.get_intrinsics(frame[0])
     
     def get_intrinsics(self, frame):
@@ -66,10 +69,13 @@ class ngpDataset(BaseDataset):
             aabb = meta['aabb']
             self.scale = max(abs(np.array(aabb[1]))+
                          abs(np.array(aabb[0])))
+            print(f'Scale from aabb: {self.scale}')
         elif 'scale' in meta:
             self.scale = meta['scale']
+            print(f'Scale from scale: {self.scale}')
         else:
             self.scale = 1
+            print(f'Default scale: {self.scale}')
 
         for frame in tqdm(meta['frames']):
             K, directions, img_wh = self.get_intrinsics(frame)
@@ -96,7 +102,7 @@ class ngpDataset(BaseDataset):
         aabb_range = self.poses[..., 3].max(0)[0].abs() + \
                      self.poses[..., 3].min(0)[0].abs()
         self.poses[..., 3] /= (aabb_range[:2].max()/2)
-        self.poses[..., 3] *= self.scale
+        self.poses[..., 3] *= self.scale 
         self.K = torch.FloatTensor(self.K) # (N_images, 3, 3)
         self.directions = torch.stack(self.directions) # (N_images, hw, rgb)
         self.img_wh = torch.FloatTensor(self.img_wh) # (N_images, 2)
