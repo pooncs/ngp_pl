@@ -215,3 +215,34 @@ def create_spheric_poses(radius, mean_h, n_poses=120):
     for th in np.linspace(0, 2*np.pi, n_poses+1)[:-1]:
         spheric_poses += [spheric_pose(th, -np.pi/12, radius)]
     return np.stack(spheric_poses, 0)
+
+def pose_spherical(rad, n=40):
+    def get_pose(theta, phi, radius):
+        trans_t = lambda t : torch.Tensor([
+            [1,0,0,0],
+            [0,1,0,0],
+            [0,0,1,t],
+            [0,0,0,1]]).float()
+
+        rot_phi = lambda phi : torch.Tensor([
+            [1,0,0,0],
+            [0,np.cos(phi),-np.sin(phi),0],
+            [0,np.sin(phi), np.cos(phi),0],
+            [0,0,0,1]]).float()
+
+        rot_theta = lambda th : torch.Tensor([
+            [np.cos(th),0,-np.sin(th),0],
+            [0,1,0,0],
+            [np.sin(th),0, np.cos(th),0],
+            [0,0,0,1]]).float()
+            
+        c2w = trans_t(radius)
+        c2w = rot_phi(phi/180.*np.pi) @ c2w
+        c2w = rot_theta(theta/180.*np.pi) @ c2w
+        c2w = torch.Tensor(np.array([[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+        return c2w
+    
+    poses = [get_pose(angle, -30., rad) for angle in np.linspace(-180,180,n+1)[:-1]]
+    poses = torch.stack(poses, 0)
+    poses[..., 1:3] *= -1 
+    return poses

@@ -5,7 +5,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-from .ray_utils import get_ray_directions
+from .ray_utils import get_ray_directions, create_spheric_poses
 from .color_utils import read_image
 
 from .base import BaseDataset
@@ -64,45 +64,46 @@ class ngpDataset(BaseDataset):
         with open(os.path.join(self.root_dir, 'transforms.json'), 'r') as f:
             meta = json.load(f)
         
-        if 'aabb' in meta:
-            #self.shift = np.array(aabb['scene_center_3d_box'])
-            aabb = meta['aabb']
-            self.scale = max(abs(np.array(aabb[1]))+
-                         abs(np.array(aabb[0])))
-            print(f'Scale from aabb: {self.scale}')
-        elif 'scale' in meta:
-            self.scale = meta['scale']
-            print(f'Scale from scale: {self.scale}')
-        else:
-            self.scale = 1
-            print(f'Default scale: {self.scale}')
+            if 'aabb' in meta:
+                #self.shift = np.array(aabb['scene_center_3d_box'])
+                aabb = meta['aabb']
+                self.scale = max(abs(np.array(aabb[1]))+
+                            abs(np.array(aabb[0])))
+                print(f'Scale from aabb: {self.scale}')
+            elif 'scale' in meta:
+                self.scale = meta['scale']
+                print(f'Scale from scale: {self.scale}')
+            else:
+                self.scale = 1
+                print(f'Default scale: {self.scale}')
 
-        for frame in tqdm(meta['frames']):
-            K, directions, img_wh = self.get_intrinsics(frame)
-            self.K += [K]
-            self.directions += directions
-            self.img_wh += [img_wh]
+            for frame in tqdm(meta['frames']):
+                K, directions, img_wh = self.get_intrinsics(frame)
+                self.K += [K]
+                self.directions += directions
+                self.img_wh += [img_wh]
 
-            c2w = np.array(frame['transform_matrix'])[:3, :4]
-            c2w[:, 1:3] *= -1 # [right up back] to [right down front]
-            #pose_radius_scale = 1
-            #c2w[:, 3] /= np.linalg.norm(c2w[:, 3]) #/pose_radius_scale
-            self.poses += [c2w]
+                c2w = np.array(frame['transform_matrix'])[:3, :4]
+                c2w[:, 1:3] *= -1 # [right up back] to [right down front]
+                #pose_radius_scale = 1
+                c2w[:, 3] /= np.linalg.norm(c2w[:, 3]) #/pose_radius_scale
+                self.poses += [c2w]
 
-            image_path = os.path.join(self.root_dir, frame['file_path'][2:])
-            #self.image_paths += [image_path]
-            img = read_image(image_path, img_wh)
-            self.rays += [img]
-        
-        if len(self.rays)>0:
-            self.rays = torch.FloatTensor(np.stack(self.rays)) # (N_images, hw, rgb)
-        
-        self.poses = torch.FloatTensor(self.poses) # (N_images, 3, 4)
-        #self.poses[..., 3] /= np.linalg.norm(self.poses[..., 3])
-        aabb_range = self.poses[..., 3].max(0)[0].abs() + \
-                     self.poses[..., 3].min(0)[0].abs()
-        self.poses[..., 3] /= (aabb_range[:2].max()/2)
-        self.poses[..., 3] *= self.scale 
+                image_path = os.path.join(self.root_dir, frame['file_path'][2:])
+                #self.image_paths += [image_path]
+                img = read_image(image_path, img_wh)
+                self.rays += [img]
+            
+            if len(self.rays)>0:
+                self.rays = torch.FloatTensor(np.stack(self.rays)) # (N_images, hw, rgb)
+            
+            self.poses = torch.FloatTensor(self.poses) # (N_images, 3, 4)
+            #self.poses[..., 3] /= np.linalg.norm(self.poses[..., 3])
+            '''aabb_range = self.poses[..., 3].max(0)[0].abs() + \
+                        self.poses[..., 3].min(0)[0].abs()
+            self.poses[..., 3] /= (aabb_range[:2].max()/2)
+            self.poses[..., 3] *= self.scale '''
+
         self.K = torch.FloatTensor(self.K) # (N_images, 3, 3)
         self.directions = torch.stack(self.directions) # (N_images, hw, rgb)
         self.img_wh = torch.FloatTensor(self.img_wh) # (N_images, 2)

@@ -43,8 +43,10 @@ import warnings; warnings.filterwarnings("ignore")
 
 
 def depth2img(depth):
-    depth = (depth-depth.min())/(depth.max()-depth.min())
-    depth_img = cv2.applyColorMap((depth*255).astype(np.uint8),
+    depth = (depth-depth[depth>0].min())/(depth.max()-depth[depth>0].min())
+    depth[depth<0] = 0
+    depth *= 255
+    depth_img = cv2.applyColorMap((depth).astype(np.uint8),
                                   cv2.COLORMAP_TURBO)
 
     return depth_img
@@ -190,7 +192,8 @@ class NeRFSystem(LightningModule):
         torch.cuda.empty_cache()
         if not self.hparams.no_save_test:
             self.val_dir = f'results/{self.hparams.dataset_name}/{self.hparams.exp_name}'
-            os.makedirs(self.val_dir, exist_ok=True)
+            os.makedirs(f'{self.val_dir}/val_rgb/', exist_ok=True)
+            os.makedirs(f'{self.val_dir}/val_dep/', exist_ok=True)
 
     def validation_step(self, batch, batch_nb):
         rgb_gt = batch['rgb']
@@ -222,9 +225,9 @@ class NeRFSystem(LightningModule):
             depth = depth2img(rearrange(results['depth'].cpu().numpy(), '(h w) -> h w', h=h))
             #imageio.imsave(os.path.join(self.val_dir, f'{idx:03d}.png'), rgb_pred)
             #imageio.imsave(os.path.join(self.val_dir, f'{idx:03d}_d.png'), depth)
-            cv2.imwrite(os.path.join(self.val_dir, f'{idx:03d}.png'), \
+            cv2.imwrite(os.path.join(self.val_dir, f'/val_rgb/{idx:03d}.png'), \
                 cv2.cvtColor(rgb_pred, cv2.COLOR_BGR2RGB))
-            cv2.imwrite(os.path.join(self.val_dir, f'{idx:03d}_d.png'), \
+            cv2.imwrite(os.path.join(self.val_dir, f'/val_dep/{idx:03d}_d.png'), \
                 cv2.cvtColor(depth, cv2.COLOR_BGR2RGB))
 
         return logs
