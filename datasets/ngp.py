@@ -5,7 +5,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-from .ray_utils import get_ray_directions, create_spheric_poses
+from .ray_utils import get_ray_directions
 from .color_utils import read_image
 
 from .base import BaseDataset
@@ -101,8 +101,8 @@ class ngpDataset(BaseDataset):
             #self.poses[..., 3] /= np.linalg.norm(self.poses[..., 3])
             '''aabb_range = self.poses[..., 3].max(0)[0].abs() + \
                         self.poses[..., 3].min(0)[0].abs()
-            self.poses[..., 3] /= (aabb_range[:2].max()/2)
-            self.poses[..., 3] *= self.scale '''
+            self.poses[..., 3] /= (aabb_range[:2].max()/2)'''
+            self.poses[..., 3] *= self.scale
 
         self.K = torch.FloatTensor(self.K) # (N_images, 3, 3)
         self.directions = torch.stack(self.directions) # (N_images, hw, rgb)

@@ -7,12 +7,13 @@ from models.networks import NGP
 from models.rendering import render
 from metrics import psnr
 import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from datasets import dataset_dict
-from datasets.ray_utils import get_rays, pose_spherical
+from datasets.ray_utils import get_rays, pose_spherical, get_ray_directions
 from utils import load_ckpt
 from train import depth2img
 import imageio
+t0 = time.time()
 
 dataset_name = 'ngp'
 scene = 's4_s2'
@@ -23,6 +24,7 @@ render_spherical = True
 render_testset = False
 save_spherical_raw = False
 
+################################################## Load images ##################################################
 ckpt_path = glob.glob(f'/home/ubuntu/ngp_pl/ckpts/{dataset_name}/{scene}/epoch=*_slim.ckpt')[0]
 save_path = f'results/{dataset_name}/{scene}'
 
@@ -30,9 +32,9 @@ dataset = dataset_dict[dataset_name](data_dir, split='test', downsample=1)
 model = NGP(scale=0.5).cuda()
 print(ckpt_path)
 load_ckpt(model, ckpt_path)
+print(f'(Load images) Elapsed time: {(time.time()-t0):.2f}s')
 
-from datasets.ray_utils import get_ray_directions
-
+################################################## Render images ##################################################
 psnrs = []; ts = []; imgs = []; depths = []
 os.makedirs(save_path, exist_ok=True)
 nadir_pose = [[1., 0., 0.,  0.0],
@@ -53,14 +55,11 @@ nadir_pose[:, 1:3] *= -1
 nadir = True
 
 if render_nadir:
-    t = time.time()
     rays_o, rays_d = get_rays(nadir_directions.cuda(), nadir_pose.cuda())
     results = render(model, rays_o, rays_d,
                      **{'test_time': True,
-                        'T_threshold': 1e-1})
-    torch.cuda.synchronize()
-    ts += [time.time()-t]
-    print(f'Rendered image in {ts}s')
+                        'T_threshold': 1e-2,
+                        'exp_step_factor': 1/256})
 
     pred = results['rgb'].reshape(w, h, 3).cpu().numpy()
     pred = (pred*255).astype(np.uint8)
@@ -70,19 +69,20 @@ if render_nadir:
     imageio.imwrite(f'{save_path}/nadir_rgb.jpg', pred)
     imageio.imwrite(f'{save_path}/nadir_depth.jpg', depth_)
     imageio.imwrite(f'{save_path}/nadir_opacity.jpg', opacity)
+    print(f'(Render nadir images) Elapsed time: {(time.time()-t0):.2f}s')
 
 if render_spherical:
     simgs, sdepths, sopacs = [],[],[]
     ht = nadir_pose[-1][-1]
     poses = pose_spherical(ht)
 
-    for i, pose in enumerate(poses):
+    for pose in tqdm(poses):
         rays_o, rays_d = get_rays(nadir_directions.cuda(), pose.cuda())
         results_sphere = render(model, rays_o, rays_d,
                             **{'test_time': True,
-                            'T_threshold': 1e-1})
-        torch.cuda.synchronize()
-        print(f'Rendered spherical pose image {i+1}/{len(poses)} in {time.time()-t}s')
+                            'T_threshold': 1e-2,
+                            'exp_step_factor': 1/256})
+        #print(f'Rendered spherical pose image {i+1}/{len(poses)} in {time.time()-t}s')
         
         simg = (results_sphere['rgb'].reshape(w, h, 3).cpu().numpy()*255).astype(np.uint8)
         simgs.append(simg)
@@ -102,8 +102,11 @@ if render_spherical:
     imageio.mimsave(f'{save_path}/rgb.mp4', simgs, fps=10)
     imageio.mimsave(f'{save_path}/depth.mp4', sdepths, fps=10)
     imageio.mimsave(f'{save_path}/opacity.mp4', sopacs, fps=10)
+    print(f'(Render Spherical images) Elapsed time: {(time.time()-t0):.2f}s')
 
 if render_testset:
+    os.makedirs(f'{save_path}/val_rgb/', exist_ok=True)
+    os.makedirs(f'{save_path}/val_dep/', exist_ok=True)
     for img_idx in tqdm(range(len(dataset))):
         t = time.time()
         rays_o, rays_d = get_rays(dataset.directions[img_idx].cuda(), dataset.poses[img_idx].cuda())
@@ -111,8 +114,6 @@ if render_testset:
                         **{'test_time': True,
                             'T_threshold': 1e-2,
                             'exp_step_factor': 1/256})
-        torch.cuda.synchronize()
-        ts += [time.time()-t]
 
         pred = results['rgb'].reshape(int(dataset.img_wh[img_idx][1]), int(dataset.img_wh[img_idx][0]), 3).cpu().numpy()
         pred = (pred*255).astype(np.uint8)
@@ -121,15 +122,15 @@ if render_testset:
         imgs += [pred]
         depths += [depth_]
         opacity = results['opacity'].reshape(int(dataset.img_wh[img_idx][1]), int(dataset.img_wh[img_idx][0])).cpu().numpy()
-        imageio.imwrite(f'{save_path}/{img_idx:03d}.png', pred)
-        imageio.imwrite(f'{save_path}/{img_idx:03d}_d.png', depth_)
+        imageio.imwrite(f'{save_path}/val_rgb/{img_idx:03d}.png', pred)
+        imageio.imwrite(f'{save_path}/val_dep/{img_idx:03d}_d.png', depth_)
 
         gb_gt = dataset[img_idx]['rgb'].cuda()
-        psnrs += [psnr(results['rgb'], dataset.rays[img_idx])]
+        psnrs += [psnr(results['rgb'], gb_gt).cpu().numpy()]
             
     if psnrs: print(f'mean PSNR: {np.mean(psnrs):.2f}, min: {np.min(psnrs):.2f}, max: {np.max(psnrs):.2f}')
-    print(f'mean time: {np.mean(ts):.4f} s, FPS: {1/np.mean(ts):.2f}')
     print(f'mean samples per ray: {results["total_samples"]/len(rays_d):.2f}')
+    print(f'(Render test images) Elapsed time: {(time.time()-t0):.2f}s')
 
 '''
 

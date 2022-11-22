@@ -229,6 +229,7 @@ class NeRFSystem(LightningModule):
                 cv2.cvtColor(rgb_pred, cv2.COLOR_BGR2RGB))
             cv2.imwrite(os.path.join(self.val_dir, f'/val_dep/{idx:03d}_d.png'), \
                 cv2.cvtColor(depth, cv2.COLOR_BGR2RGB))
+            print(os.path.join(self.val_dir, f'/val_rgb/{idx:03d}.png'))
 
         return logs
 
