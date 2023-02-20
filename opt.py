@@ -6,7 +6,7 @@ def get_opts():
     # dataset parameters
     parser.add_argument('--root_dir', type=str, required=True,
                         help='root directory of dataset')
-    parser.add_argument('--dataset_name', type=str, default='nsvf',
+    parser.add_argument('--dataset_name', type=str, default='ngp',
                         choices=['nerf', 'nsvf', 'colmap', 'nerfpp', 'rtmv', 'ngp'],
                         help='which dataset to train/test')
     parser.add_argument('--split', type=str, default='train',
@@ -47,7 +47,7 @@ def get_opts():
     # experimental training options
     parser.add_argument('--optimize_ext', action='store_true', default=False,
                         help='whether to optimize extrinsics')
-    parser.add_argument('--random_bg', action='store_true', default=False,
+    parser.add_argument('--random_bg', action='store_true', default=True,
                         help='''whether to train with random bg color (real scene only)
                         to avoid objects with black color to be predicted as transparent
                         ''')

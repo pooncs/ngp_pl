@@ -16,8 +16,8 @@ import imageio
 t0 = time.time()
 
 dataset_name = 'ngp'
-scene = 's4_s2'
-data_dir = '/home/ubuntu/data/shuttle4'
+scene = 'shuttleTest8'
+data_dir = '/home/ubuntu/ws/data/shuttleTest8'
 
 render_nadir = True
 render_spherical = True
@@ -25,7 +25,7 @@ render_testset = False
 save_spherical_raw = False
 
 ################################################## Load images ##################################################
-ckpt_path = glob.glob(f'/home/ubuntu/ngp_pl/ckpts/{dataset_name}/{scene}/epoch=*_slim.ckpt')[0]
+ckpt_path = glob.glob(f'/home/ubuntu/ws/ngp_pl/ckpts/{dataset_name}/{scene}/epoch=*_slim.ckpt')[0]
 save_path = f'results/{dataset_name}/{scene}'
 
 dataset = dataset_dict[dataset_name](data_dir, split='test', downsample=1)
